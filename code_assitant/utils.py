@@ -7,38 +7,49 @@ from openai import OpenAI
 
 load_dotenv()
 
-# Read the API key from the environment or Streamlit Secrets.
-api_key = os.getenv("OPENAI_API_KEY")
+# Get the OpenRouter API key
+api_key = os.getenv("OPENROUTER_API_KEY")
 
 if not api_key:
     try:
-        api_key = st.secrets["OPENAI_API_KEY"]
+        api_key = st.secrets["OPENROUTER_API_KEY"]
     except (KeyError, FileNotFoundError):
         api_key = None
 
 if not api_key:
     raise RuntimeError(
-        "OPENAI_API_KEY is missing. "
-        "Configure it in Streamlit Community Cloud Secrets."
+        "OPENROUTER_API_KEY is missing. "
+        "Add it to Streamlit Community Cloud Secrets."
     )
 
-client = OpenAI(api_key=api_key)
+# OpenRouter uses the OpenAI-compatible API
+client = OpenAI(
+    api_key=api_key,
+    base_url="https://openrouter.ai/api/v1",
+)
+
+# Automatically routes to an available free model
+MODEL = "openrouter/free"
 
 
 def generate_code(prompt):
     response = client.chat.completions.create(
-        model="gpt-4.1-mini",
+        model=MODEL,
         messages=[
             {
                 "role": "system",
-                "content": "You are a helpful coding assistant.",
+                "content": (
+                    "You are a helpful Python coding assistant. "
+                    "Generate accurate, readable code with explanations "
+                    "when useful."
+                ),
             },
             {"role": "user", "content": prompt},
         ],
         temperature=0.3,
     )
 
-    return response.choices[0].message.content
+    return response.choices[0].message.content or ""
 
 
 def explain_code(code):
@@ -47,5 +58,9 @@ def explain_code(code):
 
 
 def fix_code(code):
-    prompt = f"Fix bugs in the following code:\n{code}"
+    prompt = (
+        "Find and fix bugs in the following code. "
+        "Return the corrected code and explain the changes:\n"
+        f"{code}"
+    )
     return generate_code(prompt)
